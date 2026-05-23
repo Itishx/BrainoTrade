@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BrainoTrade Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+    <script
+      src="{{ url_for('static', filename='js/dashboard.js') }}"
+      defer
+    ></script>
+  </head>
+  <body
+    data-default-symbol="{{ default_symbol }}"
+    data-refresh-interval="{{ refresh_interval }}"
+    data-provider-name="{{ provider_name }}"
+  >
+    <div class="app-shell">
+
+      <!-- ── TOPBAR ───────────────────────────────────────────── -->
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">BrainoTrade</p>
+          <h1>Groww Real-Time Trading Dashboard</h1>
+          <p class="subcopy">
+            Live watchlist, automated signals, Groww broker balances, and a dedicated bot wallet in one view.
+          </p>
+        </div>
+        <div class="topbar-meta">
+          <a href="/guide" class="guide-link">How it works ↗</a>
+          <div class="status-pill">
+            <span class="pill-label">Provider</span>
+            <span id="provider-name">{{ provider_name }}</span>
+          </div>
+          <div class="status-pill">
+            <span class="pill-label">Updated</span>
+            <span id="as-of">Waiting for data</span>
+          </div>
+          <div class="status-pill">
+            <span class="pill-label">Bot</span>
+            <span id="bot-status">Booting</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ── ALERT ────────────────────────────────────────────── -->
+      <section id="alert-banner" class="alert-banner hidden"></section>
+
+      <!-- ── SYSTEM FLOW ──────────────────────────────────────── -->
+      <section class="panel flow-stage">
+        <div class="panel-header flow-stage-header">
+          <div>
+            <p class="panel-kicker">System Flow</p>
+            <h2>How The Bot Runs</h2>
+          </div>
+          <span id="flow-summary" class="panel-note">
+            Universe -> Scanner -> Ranker -> AI / EMA -> Risk Check -> Order -> P&amp;L
+          </span>
+        </div>
+        <div class="flow-grid">
+          <article class="flow-card" id="flow-card-universe">
+            <span class="flow-index">01</span>
+            <h3 class="flow-title">Universe</h3>
+            <p id="flow-universe-status" class="flow-copy">Loading market universe…</p>
+            <p id="flow-universe-meta" class="flow-meta">Waiting for provider sync</p>
+          </article>
+          <article class="flow-card" id="flow-card-scanner">
+            <span class="flow-index">02</span>
+            <h3 class="flow-title">Scanner</h3>
+            <p id="flow-scanner-status" class="flow-copy">Warming symbols…</p>
+            <p id="flow-scanner-meta" class="flow-meta">No live scan status yet</p>
+          </article>
+          <article class="flow-card" id="flow-card-ranker">
+            <span class="flow-index">03</span>
+            <h3 class="flow-title">Ranker</h3>
+            <p id="flow-ranker-status" class="flow-copy">Waiting for usable symbols…</p>
+            <p id="flow-ranker-meta" class="flow-meta">Needs hydrated quotes and real history</p>
+          </article>
+          <article class="flow-card" id="flow-card-decision">
+            <span class="flow-index">04</span>
+            <h3 class="flow-title">Decision</h3>
+            <p id="flow-decision-status" class="flow-copy">Checking strategy mode…</p>
+            <p id="flow-decision-meta" class="flow-meta">AI or EMA will decide BUY / HOLD / SELL</p>
+          </article>
+          <article class="flow-card" id="flow-card-risk">
+            <span class="flow-index">05</span>
+            <h3 class="flow-title">Risk Check</h3>
+            <p id="flow-risk-status" class="flow-copy">Applying wallet and broker limits…</p>
+            <p id="flow-risk-meta" class="flow-meta">Caps, loss limits, and stop floor protect execution</p>
+          </article>
+          <article class="flow-card" id="flow-card-execution">
+            <span class="flow-index">06</span>
+            <h3 class="flow-title">Order &amp; P&amp;L</h3>
+            <p id="flow-execution-status" class="flow-copy">Ready to simulate or place orders…</p>
+            <p id="flow-execution-meta" class="flow-meta">Session journal updates after each fill</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- ── SIGNAL HERO ─────────────────────────────────────── -->
+      <section class="panel signal-hero">
+
+        <div class="signal-hero-layout">
+
+          <!-- Big signal spotlight -->
+          <div class="signal-hero-spotlight">
+            <div class="signal-hero-top-row">
+              <p class="panel-kicker signal-hero-kicker">Latest Bot Signal</p>
+              <span id="signal-scan-status" class="signal-scan-status">Scanning…</span>
+            </div>
+            <div id="signal-empty" class="signal-spotlight-empty">Watching for EMA crossover…</div>
+            <div id="signal-body" class="signal-spotlight-body hidden">
+              <span id="signal-action" class="signal-badge signal-badge-large">--</span>
+              <p id="signal-symbol" class="signal-spotlight-stock">--</p>
+              <p id="signal-price" class="signal-spotlight-price">--</p>
+              <p id="signal-time" class="signal-spotlight-meta">--</p>
+              <p id="signal-reason" class="signal-spotlight-reason">--</p>
+            </div>
+          </div>
+
+          <!-- Mode selector -->
+          <div class="signal-hero-mode">
+            <p class="panel-kicker" style="text-align:center; margin-bottom:14px;">Trading Mode</p>
+            <div class="mode-toggle signal-hero-mode-toggle" role="group" aria-label="Trading mode">
+              <button class="mode-button active" data-mode="paper" type="button">Paper</button>
+              <button class="mode-button" data-mode="live" type="button">Live</button>
+              <button class="mode-button mode-button-hyper" data-mode="hyper" type="button">Hyper</button>
+            </div>
+          </div>
+
+        </div><!-- /signal-hero-layout -->
+
+        <!-- Risk strip: Cap/trade, Stop loss, Max loss, Trades today, Session P&L -->
+        <div class="risk-strip">
+          <div class="strip-cell">
+            <span class="strip-label">Cap / trade</span>
+            <span id="limit-capital" class="strip-value">--</span>
+          </div>
+          <div class="strip-cell">
+            <span class="strip-label">Stop loss</span>
+            <span id="limit-stop-loss" class="strip-value">--</span>
+          </div>
+          <div class="strip-cell">
+            <span class="strip-label">Max loss</span>
+            <span id="limit-loss" class="strip-value">--</span>
+          </div>
+          <div class="strip-cell">
+            <span class="strip-label">Trades today</span>
+            <span id="session-trades" class="strip-value">--</span>
+          </div>
+          <div class="strip-cell">
+            <span class="strip-label">Session P&amp;L</span>
+            <span id="session-pnl" class="strip-value">--</span>
+          </div>
+        </div>
+
+      </section><!-- /signal-hero -->
+
+      <!-- ── MAIN DASHBOARD GRID ──────────────────────────────── -->
+      <main class="dashboard-grid">
+
+        <!-- LEFT: Watchlist -->
+        <aside class="panel watchlist-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-kicker">Market Breadth</p>
+              <h2>{{ watchlist_heading }}</h2>
+            </div>
+            <span id="watchlist-note" class="panel-note">{{ watchlist_note }}</span>
+          </div>
+          <div id="watchlist-list" class="watchlist-list"></div>
+        </aside>
+
+        <!-- CENTER: Price Chart -->
+        <section class="panel chart-panel">
+          <div class="chart-panel-header">
+            <div class="chart-stock-info">
+              <p class="panel-kicker">Price Chart</p>
+              <h2 id="selected-heading">{{ default_symbol }}</h2>
+            </div>
+            <div class="chart-stock-metrics">
+              <div>
+                <span class="metric-label">LTP</span>
+                <span id="hero-ltp" class="metric-value signal-hero-ltp">--</span>
+              </div>
+              <div>
+                <span class="metric-label">Open</span>
+                <span id="hero-open" class="metric-value">--</span>
+              </div>
+              <div>
+                <span class="metric-label">Change</span>
+                <span id="hero-change" class="metric-value">--</span>
+              </div>
+            </div>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-dot candle-dot"></span>Candles</span>
+              <span class="legend-item"><span class="legend-dot ema9-dot"></span>EMA 9</span>
+              <span class="legend-item"><span class="legend-dot ema21-dot"></span>EMA 21</span>
+            </div>
+          </div>
+          <!-- Stats strip: Open, High, Low, Volume, Bid/Ask -->
+          <div class="stats-strip chart-stats-strip">
+            <div class="strip-cell">
+              <span class="strip-label">Open</span>
+              <span id="hero-open-strip" class="strip-value">--</span>
+            </div>
+            <div class="strip-cell">
+              <span class="strip-label">High</span>
+              <span id="stat-high" class="strip-value">--</span>
+            </div>
+            <div class="strip-cell">
+              <span class="strip-label">Low</span>
+              <span id="stat-low" class="strip-value">--</span>
+            </div>
+            <div class="strip-cell">
+              <span class="strip-label">Volume</span>
+              <span id="stat-volume" class="strip-value">--</span>
+            </div>
+            <div class="strip-cell">
+              <span class="strip-label">Bid / Ask</span>
+              <span id="stat-book" class="strip-value">--</span>
+            </div>
+          </div>
+          <div id="chart" class="chart-surface"></div>
+        </section>
+
+        <!-- RIGHT: Thinking + Trades -->
+        <div class="right-col">
+
+          <!-- Open positions -->
+          <section class="panel positions-panel-right">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Capital Focus</p>
+                <h2>Open Positions</h2>
+              </div>
+              <span class="panel-note" id="positions-count">No open positions</span>
+            </div>
+            <div id="positions-list" class="positions-list">
+              <div class="positions-empty">No open positions yet. Bought stocks will stay under active watch here.</div>
+            </div>
+          </section>
+
+          <!-- Thinking log -->
+          <section class="panel thinking-panel-right">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Bot Brain</p>
+                <h2>Thinking Log</h2>
+              </div>
+              <span class="panel-note" id="thinking-count">Waiting for data</span>
+            </div>
+            <div id="thinking-log" class="thinking-log">
+              <div class="thinking-empty">Bot is starting up…</div>
+            </div>
+          </section>
+
+          <!-- Trade log -->
+          <section class="panel trades-right">
+            <div class="panel-header">
+              <div>
+                <p class="panel-kicker">Execution Journal</p>
+                <h2>Trade Log</h2>
+              </div>
+              <span class="panel-note">Current session</span>
+            </div>
+            <div class="table-wrap trades-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Stock</th>
+                    <th>Side</th>
+                    <th>Price</th>
+                    <th>Qty</th>
+                    <th>P&amp;L</th>
+                    <th>Status</th>
+                    <th>Mode</th>
+                  </tr>
+                </thead>
+                <tbody id="trade-log-body">
+                  <tr>
+                    <td colspan="8" class="empty-row">No trades simulated yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+        </div><!-- /right-col -->
+
+      </main><!-- /dashboard-grid -->
+
+      <!-- ── MONEY STAGE ──────────────────────────────────────── -->
+      <section class="money-stage">
+
+        <article class="panel money-hero">
+          <div class="money-header">
+            <div>
+              <p class="panel-kicker">Capital Desk</p>
+              <h2>Bot Wallet</h2>
+              <p class="money-deck">
+                Your automation budget lives here first. The bot can only deploy from this dedicated wallet, even if the broker account holds more cash.
+              </p>
+            </div>
+            <div class="money-spotlight">
+              <span class="money-spotlight-label">Starting capital</span>
+              <span id="capital-heading" class="money-figure">--</span>
+              <span id="capital-status" class="money-caption">Allocated bot capital</span>
+            </div>
+          </div>
+          <div class="money-ledger">
+            <div class="ledger-item">
+              <span class="risk-label">Free cash</span>
+              <span id="capital-free-cash" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Deployed</span>
+              <span id="capital-deployed" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Net equity</span>
+              <span id="capital-equity" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Return</span>
+              <span id="capital-return" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Unrealized</span>
+              <span id="capital-unrealized" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Drawdown</span>
+              <span id="capital-drawdown" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Stop floor</span>
+              <span id="capital-floor" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Open positions</span>
+              <span id="capital-open-positions" class="risk-value">--</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel broker-hero">
+          <div class="money-header">
+            <div>
+              <p class="panel-kicker">Broker Ledger</p>
+              <h2 id="broker-heading" class="money-title">Broker sync</h2>
+              <p id="broker-note" class="money-deck">
+                Add money in Groww manually. This dashboard reads the reflected balance after Groww updates it.
+              </p>
+            </div>
+            <div class="money-spotlight broker-spotlight">
+              <span class="money-spotlight-label">Available cash</span>
+              <span id="broker-avail-cash" class="money-figure">--</span>
+              <span id="broker-updated" class="money-caption">Waiting for account data</span>
+            </div>
+          </div>
+          <div class="money-ledger broker-ledger">
+            <div class="ledger-item">
+              <span class="risk-label">Clear cash</span>
+              <span id="broker-clear-cash" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">MIS power</span>
+              <span id="broker-mis" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">CNC power</span>
+              <span id="broker-cnc" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Holdings cost</span>
+              <span id="broker-holdings-cost" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Holdings P&amp;L</span>
+              <span id="broker-holdings-pnl" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Holdings return</span>
+              <span id="broker-holdings-return" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Holdings</span>
+              <span id="broker-holdings-count" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Open positions</span>
+              <span id="broker-open-positions" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Margin used</span>
+              <span id="broker-margin-used" class="risk-value">--</span>
+            </div>
+            <div class="ledger-item">
+              <span class="risk-label">Broker P&amp;L</span>
+              <span id="broker-realized-pnl" class="risk-value">--</span>
+            </div>
+          </div>
+        </article>
+
+      </section><!-- /money-stage -->
+
+    </div><!-- /app-shell -->
+  </body>
+</html>

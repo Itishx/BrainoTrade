@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BrainoTrade — How it works</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ── Design tokens (matches dashboard) ── */
+      :root {
+        --bg:          #0e1014;
+        --bg-alt:      #14171e;
+        --bg-card:     #181c24;
+        --ink:         #ece8e0;
+        --ink-soft:    #a8a4a0;
+        --ink-muted:   #6a6e76;
+        --rule:        rgba(255,255,255,.07);
+        --rule-strong: rgba(255,255,255,.14);
+        --accent:      #c97a5a;
+        --accent-soft: rgba(201,122,90,.14);
+        --bull:        #5fb572;
+        --bear:        #d96b6b;
+        --gold:        #c8a86a;
+        --gold-soft:   rgba(200,168,106,.12);
+        --cyan:        #72b3d1;
+        --ff-display:  "Instrument Serif", Georgia, serif;
+        --ff-ui:       "Geist", system-ui, -apple-system, sans-serif;
+        --ff-mono:     "JetBrains Mono", ui-monospace, monospace;
+        --r-sm:  10px;
+        --r-md:  16px;
+        --r-lg:  22px;
+        --r-pill:999px;
+      }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--ff-ui);
+        font-size: 16px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      /* ── Shell ── */
+      .shell {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 64px 40px 120px;
+      }
+
+      /* ── Nav ── */
+      .topnav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 80px;
+      }
+      .topnav-brand {
+        font-family: var(--ff-mono);
+        font-size: 11px;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .topnav-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 22px;
+        background: var(--ink);
+        color: var(--bg);
+        border-radius: var(--r-pill);
+        font-family: var(--ff-mono);
+        font-size: 11px;
+        letter-spacing: .10em;
+        text-transform: uppercase;
+        font-weight: 500;
+        transition: opacity .15s;
+      }
+      .topnav-cta:hover { opacity: .85; text-decoration: none; }
+
+      /* ── Hero ── */
+      .hero {
+        padding-bottom: 64px;
+        border-bottom: 0.5px solid var(--rule-strong);
+        margin-bottom: 80px;
+      }
+      .hero-kicker {
+        display: inline-block;
+        font-family: var(--ff-mono);
+        font-size: 10.5px;
+        letter-spacing: .20em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 20px;
+      }
+      .hero-headline {
+        margin: 0 0 24px;
+        font-family: var(--ff-display);
+        font-size: clamp(2.8rem, 5vw, 4.8rem);
+        line-height: 1.02;
+        letter-spacing: -.022em;
+        font-weight: 400;
+      }
+      .hero-headline em {
+        font-style: italic;
+        color: var(--accent);
+      }
+      .hero-deck {
+        margin: 0 0 40px;
+        font-size: 18px;
+        line-height: 1.7;
+        color: var(--ink-soft);
+        max-width: 560px;
+      }
+      .hero-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .tag {
+        padding: 6px 14px;
+        border: 0.5px solid var(--rule-strong);
+        border-radius: var(--r-pill);
+        font-family: var(--ff-mono);
+        font-size: 11px;
+        letter-spacing: .08em;
+        color: var(--ink-muted);
+      }
+
+      /* ── Section headings ── */
+      .section {
+        margin-bottom: 72px;
+      }
+      .section-kicker {
+        font-family: var(--ff-mono);
+        font-size: 10.5px;
+        letter-spacing: .20em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+        margin: 0 0 14px;
+      }
+      .section-title {
+        margin: 0 0 32px;
+        font-family: var(--ff-display);
+        font-size: clamp(1.8rem, 3vw, 2.6rem);
+        line-height: 1.1;
+        letter-spacing: -.016em;
+        font-weight: 400;
+      }
+      .section-body {
+        color: var(--ink-soft);
+        font-size: 16px;
+        line-height: 1.75;
+        margin: 0 0 28px;
+      }
+
+      /* ── Step list ── */
+      .step-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .step-item {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        gap: 20px;
+        padding: 28px 0;
+        border-top: 0.5px solid var(--rule);
+      }
+      .step-item:last-child { border-bottom: 0.5px solid var(--rule); }
+      .step-num {
+        font-family: var(--ff-display);
+        font-size: 2.2rem;
+        line-height: 1;
+        color: var(--accent);
+        font-style: italic;
+        padding-top: 4px;
+      }
+      .step-content h3 {
+        margin: 0 0 8px;
+        font-family: var(--ff-ui);
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .step-content p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 15px;
+        line-height: 1.65;
+      }
+
+      /* ── Mode cards ── */
+      .mode-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-top: 8px;
+      }
+      @media (max-width: 640px) {
+        .mode-grid { grid-template-columns: 1fr; }
+      }
+      .mode-card {
+        background: var(--bg-card);
+        border: 0.5px solid var(--rule-strong);
+        border-radius: var(--r-lg);
+        padding: 28px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .mode-card.hyper { border-color: rgba(200,168,106,.28); }
+      .mode-card.live  { border-color: rgba(217,107,107,.22); }
+
+      .mode-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 14px;
+        border-radius: var(--r-pill);
+        font-family: var(--ff-mono);
+        font-size: 10.5px;
+        letter-spacing: .10em;
+        text-transform: uppercase;
+        font-weight: 500;
+        width: fit-content;
+      }
+      .mode-chip.paper { background: rgba(236,232,224,.10); color: var(--ink); }
+      .mode-chip.live  { background: rgba(217,107,107,.15); color: var(--bear); }
+      .mode-chip.hyper { background: var(--gold-soft); color: var(--gold); }
+
+      .mode-dot {
+        width: 6px; height: 6px;
+        border-radius: 50%;
+      }
+      .mode-chip.paper .mode-dot { background: var(--ink); }
+      .mode-chip.live  .mode-dot { background: var(--bear); }
+      .mode-chip.hyper .mode-dot { background: var(--gold); }
+
+      .mode-card h3 {
+        margin: 0;
+        font-family: var(--ff-ui);
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .mode-card p {
+        margin: 0;
+        font-size: 14px;
+        color: var(--ink-soft);
+        line-height: 1.65;
+        flex: 1;
+      }
+      .mode-stat {
+        font-family: var(--ff-mono);
+        font-size: 11px;
+        color: var(--ink-muted);
+        letter-spacing: .04em;
+        padding-top: 8px;
+        border-top: 0.5px solid var(--rule);
+      }
+
+      /* ── Concept cards ── */
+      .concept-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .concept-item {
+        padding: 24px 0;
+        border-top: 0.5px solid var(--rule);
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 32px;
+        align-items: baseline;
+      }
+      .concept-item:last-child { border-bottom: 0.5px solid var(--rule); }
+      .concept-term {
+        font-family: var(--ff-mono);
+        font-size: 12px;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .concept-def {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 15px;
+        line-height: 1.65;
+      }
+      .concept-def strong { color: var(--ink); font-weight: 500; }
+      @media (max-width: 560px) {
+        .concept-item { grid-template-columns: 1fr; gap: 8px; }
+      }
+
+      /* ── Checklist ── */
+      .checklist {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .checklist li {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        font-size: 15px;
+        color: var(--ink-soft);
+        line-height: 1.55;
+      }
+      .check-icon {
+        flex-shrink: 0;
+        width: 20px; height: 20px;
+        border-radius: 50%;
+        background: var(--accent-soft);
+        border: 0.5px solid var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: var(--accent);
+        margin-top: 1px;
+      }
+      .checklist strong { color: var(--ink); font-weight: 500; }
+
+      /* ── Flow diagram ── */
+      .flow {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        background: var(--bg-card);
+        border: 0.5px solid var(--rule-strong);
+        border-radius: var(--r-lg);
+        overflow: hidden;
+        margin: 8px 0 28px;
+      }
+      .flow-node {
+        flex: 1;
+        padding: 20px 18px;
+        text-align: center;
+      }
+      .flow-node + .flow-node {
+        border-left: 0.5px solid var(--rule-strong);
+      }
+      .flow-icon {
+        font-size: 22px;
+        margin-bottom: 8px;
+        display: block;
+      }
+      .flow-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: 4px;
+      }
+      .flow-sub {
+        font-size: 11px;
+        color: var(--ink-muted);
+        line-height: 1.4;
+      }
+      .flow-arrow {
+        font-size: 18px;
+        color: var(--ink-muted);
+        padding: 0 4px;
+        flex-shrink: 0;
+      }
+
+      /* ── CTA block ── */
+      .cta-block {
+        margin-top: 80px;
+        padding: 48px 48px;
+        background: var(--bg-card);
+        border: 0.5px solid var(--rule-strong);
+        border-radius: var(--r-lg);
+        text-align: center;
+      }
+      .cta-block h2 {
+        margin: 0 0 12px;
+        font-family: var(--ff-display);
+        font-size: clamp(1.6rem, 3vw, 2.2rem);
+        font-weight: 400;
+        letter-spacing: -.012em;
+      }
+      .cta-block p {
+        margin: 0 0 32px;
+        color: var(--ink-soft);
+        font-size: 15px;
+      }
+      .cta-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 36px;
+        background: var(--ink);
+        color: var(--bg);
+        border-radius: var(--r-pill);
+        font-family: var(--ff-mono);
+        font-size: 12px;
+        letter-spacing: .10em;
+        text-transform: uppercase;
+        font-weight: 500;
+        transition: opacity .15s, transform .15s;
+      }
+      .cta-btn:hover { opacity: .88; transform: translateY(-2px); text-decoration: none; }
+
+      /* ── Callout box ── */
+      .callout {
+        background: var(--accent-soft);
+        border: 0.5px solid rgba(201,122,90,.3);
+        border-radius: var(--r-md);
+        padding: 16px 20px;
+        margin: 24px 0 0;
+        font-size: 14px;
+        color: var(--ink-soft);
+        line-height: 1.65;
+      }
+      .callout strong { color: var(--accent); font-weight: 500; }
+
+      /* ── Divider ── */
+      .divider {
+        border: none;
+        border-top: 0.5px solid var(--rule-strong);
+        margin: 72px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+
+      <!-- Nav -->
+      <nav class="topnav">
+        <span class="topnav-brand">BrainoTrade</span>
+        <a href="/" class="topnav-cta">Open dashboard →</a>
+      </nav>
+
+      <!-- Hero -->
+      <header class="hero">
+        <span class="hero-kicker">The complete guide</span>
+        <h1 class="hero-headline">
+          An automated bot that<br>
+          trades the <em>Nifty 50</em><br>
+          so you don't have to.
+        </h1>
+        <p class="hero-deck">
+          BrainoTrade watches all 50 top Indian stocks in real time,
+          detects buy and sell opportunities automatically, and executes
+          trades through your Groww account — or simulates them safely
+          before you risk a single rupee.
+        </p>
+        <div class="hero-tags">
+          <span class="tag">Nifty 50 watchlist</span>
+          <span class="tag">EMA crossover signals</span>
+          <span class="tag">Groww broker integration</span>
+          <span class="tag">Paper · Live · Hyper modes</span>
+          <span class="tag">Real-time charts</span>
+        </div>
+      </header>
+
+      <!-- How it works -->
+      <section class="section">
+        <p class="section-kicker">The big picture</p>
+        <h2 class="section-title">How the bot works</h2>
+        <p class="section-body">
+          The bot runs a continuous loop in the background. Every few seconds it
+          fetches live prices for every Nifty 50 stock, builds 5-minute candles,
+          runs its strategy, and acts on any signal it finds — all without you lifting a finger.
+        </p>
+
+        <!-- Flow diagram -->
+        <div class="flow">
+          <div class="flow-node">
+            <span class="flow-icon">📡</span>
+            <div class="flow-label">Watch</div>
+            <div class="flow-sub">Fetches live prices every 5 seconds for all 50 stocks</div>
+          </div>
+          <div class="flow-node">
+            <span class="flow-icon">📊</span>
+            <div class="flow-label">Analyse</div>
+            <div class="flow-sub">Builds 5-min candles and computes EMA indicators</div>
+          </div>
+          <div class="flow-node">
+            <span class="flow-icon">⚡</span>
+            <div class="flow-label">Signal</div>
+            <div class="flow-sub">Detects a crossover → marks it as BUY or SELL</div>
+          </div>
+          <div class="flow-node">
+            <span class="flow-icon">✅</span>
+            <div class="flow-label">Trade</div>
+            <div class="flow-sub">Simulates (Paper) or places a real Groww order (Live)</div>
+          </div>
+        </div>
+
+        <ol class="step-list">
+          <li class="step-item">
+            <span class="step-num">1</span>
+            <div class="step-content">
+              <h3>Prices come in</h3>
+              <p>
+                Every 5 seconds the bot calls the Groww market feed and gets the latest traded price
+                for every stock on the watchlist. These ticks are stitched together into 5-minute
+                candles — exactly like the green/red bars you see on any trading chart.
+              </p>
+            </div>
+          </li>
+          <li class="step-item">
+            <span class="step-num">2</span>
+            <div class="step-content">
+              <h3>Two moving averages are drawn</h3>
+              <p>
+                On each new price tick, the bot recalculates two lines — a <strong>fast EMA</strong>
+                and a <strong>slow EMA</strong>. Think of them as two rubber bands stretched over the
+                candles: the fast one hugs price closely, the slow one lags behind.
+                Their relationship tells you which way momentum is heading.
+              </p>
+            </div>
+          </li>
+          <li class="step-item">
+            <span class="step-num">3</span>
+            <div class="step-content">
+              <h3>A crossover triggers a signal</h3>
+              <p>
+                When the fast EMA crosses <em>above</em> the slow EMA, momentum has turned upward —
+                the bot generates a <strong>BUY signal</strong>. When it crosses <em>below</em>,
+                momentum has turned downward — that's a <strong>SELL signal</strong>.
+                The signal card in the dashboard updates instantly.
+              </p>
+            </div>
+          </li>
+          <li class="step-item">
+            <span class="step-num">4</span>
+            <div class="step-content">
+              <h3>A trade is placed (or simulated)</h3>
+              <p>
+                In <strong>Paper</strong> or <strong>Hyper</strong> mode, the bot pretends to execute the
+                trade and logs it to the Trade Log — no real money involved. In <strong>Live</strong> mode,
+                it sends a real market order to Groww on your behalf. Either way, the Bot Wallet
+                tracks every rupee of the position.
+              </p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <hr class="divider">
+
+      <!-- Three modes -->
+      <section class="section">
+        <p class="section-kicker">Trading modes</p>
+        <h2 class="section-title">Three ways to run the bot</h2>
+        <p class="section-body">
+          Pick a mode from the top of the dashboard or from the Execution Desk panel on the right.
+          You can switch at any time — even mid-session.
+        </p>
+
+        <div class="mode-grid">
+
+          <div class="mode-card">
+            <span class="mode-chip paper"><span class="mode-dot"></span>Paper</span>
+            <h3>Safe simulation</h3>
+            <p>
+              Trades are logged as if they were real, but no money moves.
+              Ideal for testing the strategy, learning how it behaves, or
+              running it for a few weeks before committing real capital.
+            </p>
+            <div class="mode-stat">
+              EMA 9 / 21 · Up to 5 trades/day · No Groww account needed
+            </div>
+          </div>
+
+          <div class="mode-card live">
+            <span class="mode-chip live"><span class="mode-dot"></span>Live</span>
+            <h3>Real Groww orders</h3>
+            <p>
+              Every BUY/SELL signal fires an actual MIS market order through
+              your Groww account. Real money, real fills, real P&amp;L.
+              Enable only when you've verified the strategy in Paper first.
+            </p>
+            <div class="mode-stat">
+              EMA 9 / 21 · Up to 5 trades/day · Requires Groww API key
+            </div>
+          </div>
+
+          <div class="mode-card hyper">
+            <span class="mode-chip hyper"><span class="mode-dot"></span>Hyper</span>
+            <h3>Maximum signal speed</h3>
+            <p>
+              Uses faster EMA 3 / 8 periods — crossovers fire much earlier and
+              more often. Places <strong style="color:var(--gold)">real Groww orders</strong>,
+              just like Live mode, but with a much higher trade cap for active sessions.
+            </p>
+            <div class="mode-stat">
+              EMA 3 / 8 · Up to 50 trades/day · Real orders · Pure rule-based, no AI
+            </div>
+          </div>
+
+        </div>
+
+        <div class="callout">
+          <strong>Start with Paper mode.</strong> Run it for a full trading week. Watch the
+          signals, check the trade log, and get comfortable with how the bot thinks before
+          switching anything to Live.
+        </div>
+      </section>
+
+      <hr class="divider">
+
+      <!-- Dashboard tour -->
+      <section class="section">
+        <p class="section-kicker">Dashboard tour</p>
+        <h2 class="section-title">What each panel shows you</h2>
+
+        <div class="concept-list">
+          <div class="concept-item">
+            <span class="concept-term">Bot Wallet</span>
+            <p class="concept-def">
+              The <strong>dedicated budget you give the bot</strong>. Set via
+              <code>BOT_STARTING_CAPITAL</code> in your <code>.env</code> file (default ₹50,000).
+              The bot can only use money from here — even if your Groww account has more cash.
+              Tracks free cash, deployed capital, unrealized P&amp;L, and total return in real time.
+            </p>
+          </div>
+          <div class="concept-item">
+            <span class="concept-term">Broker Ledger</span>
+            <p class="concept-def">
+              A <strong>live read of your actual Groww account</strong>. Shows your available cash,
+              MIS intraday buying power, CNC delivery buying power, holdings, and realized P&amp;L
+              for the session. This is read-only — the dashboard never transfers money.
+            </p>
+          </div>
+          <div class="concept-item">
+            <span class="concept-term">Nifty 50 Watchlist</span>
+            <p class="concept-def">
+              All 50 stocks in the Nifty 50 index, updating live. Click any stock to load its
+              candlestick chart and EMA lines in the chart panel. The bot monitors all 50 simultaneously
+              and will fire signals from any of them.
+            </p>
+          </div>
+          <div class="concept-item">
+            <span class="concept-term">Chart panel</span>
+            <p class="concept-def">
+              Shows the <strong>candlestick price history</strong> of the selected stock, overlaid
+              with the two EMA lines. Green candles = price closed higher than it opened.
+              Red candles = price closed lower. The point where the blue and green EMA lines cross
+              is exactly where the bot would fire a signal.
+            </p>
+          </div>
+          <div class="concept-item">
+            <span class="concept-term">Execution Desk</span>
+            <p class="concept-def">
+              The right-hand sidebar. Shows the <strong>latest signal</strong> from any stock
+              (action, price, reason, and source), the mode toggle, key stats for the selected
+              stock, and the active risk controls (capital cap per trade, daily loss limit).
+            </p>
+          </div>
+          <div class="concept-item">
+            <span class="concept-term">Trade Log</span>
+            <p class="concept-def">
+              A table of <strong>every trade the bot has placed this session</strong>, newest first.
+              Shows timestamp, stock, side (BUY/SELL), price, quantity, P&amp;L, status (OPEN or CLOSED),
+              and the mode it ran in (PAPER / LIVE / HYPER). Resets on app restart.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider">
+
+      <!-- Key concepts -->
+      <section class="section">
+        <p class="section-kicker">Key concepts</p>
+        <h2 class="section-title">Trading jargon, explained simply</h2>
+
+        <div class="concept-list">
+          <div class="concept-item">
+            <span class="concept-term">EMA</span>
+            <p class="concept-def">
+              <strong>Exponential Moving Average.</strong> A line drawn over price that smooths out
+              random noise. Unlike a simple average, it weighs recent prices more heavily, so it
+              reacts faster when momentum shifts. The bot draws two: a fast one and a slow one.
+            </p>
+          </div>
+          <div class="concept-item">
+            <span class="concept-term">Crossover</span>
+            <p class="concept-def">
+              The moment the fast EMA line crosses the slow EMA line.
+              <strong>Fast crosses above slow → upward momentum → BUY.</strong>
+              Fast crosses below slow → downward momentum → SELL. This is the bot's
+              entire decision logic in Paper and Hyper modes.
+            </p>
+          </div>
+          <div class="concept-item">
+            <span class="concept-term">MIS order</span>
+            <p class="concept-def">
+              <strong>Margin Intraday Square-off.</strong> A Groww order type used for intraday
+              trading. The position must be closed before the end of the trading session
+              (3:20 PM IST). The bot uses MIS in Live mode so positions never carry overnight.
+            </p>
+          </div>
+          <div class="concept-item">
+            <span class="concept-term">Drawdown</span>
+            <p class="concept-def">
+              How far the bot's equity has fallen from its peak. If the bot peaked at ₹52,000
+              and is now at ₹49,400, drawdown is about 5%. The bot halts automatically when
+              drawdown exceeds the configured <strong>Max Capital Loss %</strong> (default 80%).
+            </p>
+          </div>
+          <div class="concept-item">
+            <span class="concept-term">Paper trading</span>
+            <p class="concept-def">
+              Running the strategy with <strong>imaginary money</strong>. Every trade is
+              recorded as if it were real so you can see exactly how the bot would have
+              performed — without any financial risk.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider">
+
+      <!-- Getting started -->
+      <section class="section">
+        <p class="section-kicker">Getting started</p>
+        <h2 class="section-title">What you need to do</h2>
+
+        <ul class="checklist">
+          <li>
+            <span class="check-icon">1</span>
+            <span>
+              <strong>Start the app.</strong> Run <code>flask run</code> (or however your server starts)
+              and open the dashboard in your browser. The bot starts immediately in Paper mode —
+              it requires no setup just to watch and simulate.
+            </span>
+          </li>
+          <li>
+            <span class="check-icon">2</span>
+            <span>
+              <strong>Set your bot budget.</strong> Open the <code>.env</code> file and set
+              <code>BOT_STARTING_CAPITAL</code> to however much you want the bot to simulate trading with.
+              The default is ₹50,000. Also set <code>MAX_CAPITAL_PER_TRADE</code> (default ₹5,000)
+              to cap how much goes into any single trade.
+            </span>
+          </li>
+          <li>
+            <span class="check-icon">3</span>
+            <span>
+              <strong>Watch it run in Paper mode.</strong> Click stocks on the watchlist, watch
+              the chart update, and wait for signals to appear in the Execution Desk. When the
+              bot buys or sells, a row appears in the Trade Log at the bottom.
+            </span>
+          </li>
+          <li>
+            <span class="check-icon">4</span>
+            <span>
+              <strong>Try Hyper mode for faster signals.</strong> Click the gold <em>Hyper</em> button
+              in the Execution Desk. The bot switches to EMA 3/8, which fires much more frequently
+              — good for seeing how the bot behaves without waiting for a long session.
+            </span>
+          </li>
+          <li>
+            <span class="check-icon">5</span>
+            <span>
+              <strong>Go Live when you're ready.</strong> Add your Groww API key and secret to
+              <code>.env</code>, set <code>ALLOW_LIVE_TRADING=true</code>, then click the
+              <em>Live</em> button. From that point, every signal places a real order.
+              Start with a small capital allocation.
+            </span>
+          </li>
+        </ul>
+
+        <div class="callout">
+          <strong>Risk controls are always on.</strong> The bot will automatically halt
+          if your daily loss exceeds <code>MAX_LOSS_PER_DAY</code>, if the number of
+          trades hits <code>MAX_TRADES_PER_DAY</code>, or if the wallet equity drops
+          below the configured floor. You can always restart it by reloading the server.
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <div class="cta-block">
+        <h2>Ready to see it in action?</h2>
+        <p>Open the dashboard, switch to Paper mode, and watch the bot work its first session.</p>
+        <a href="/" class="cta-btn">Go to dashboard →</a>
+      </div>
+
+    </div>
+  </body>
+</html>
