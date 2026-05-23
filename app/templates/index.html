@@ -178,7 +178,9 @@
           <div id="watchlist-list" class="watchlist-list"></div>
         </aside>
 
-        <!-- CENTER: Price Chart -->
+        <!-- CENTER: Price Chart + Company Info -->
+        <div class="center-col">
+
         <section class="panel chart-panel">
           <div class="chart-panel-header">
             <div class="chart-stock-info">
@@ -230,6 +232,34 @@
           </div>
           <div id="chart" class="chart-surface"></div>
         </section>
+
+        <!-- Company Info Panel -->
+        <section class="panel company-panel" id="company-panel">
+          <div class="company-panel-header">
+            <div class="company-identity">
+              <p id="company-sector" class="panel-kicker">Loading…</p>
+              <h2 id="company-display-name">—</h2>
+            </div>
+            <div class="company-meta-grid">
+              <div class="company-meta-item">
+                <span class="risk-label">CEO / MD</span>
+                <span id="company-ceo" class="risk-value">—</span>
+              </div>
+              <div class="company-meta-item">
+                <span class="risk-label">Founded</span>
+                <span id="company-founded" class="risk-value">—</span>
+              </div>
+              <div class="company-meta-item">
+                <span class="risk-label">Headquarters</span>
+                <span id="company-hq" class="risk-value">—</span>
+              </div>
+            </div>
+          </div>
+          <p id="company-description" class="company-desc">Select a stock to load company information.</p>
+          <p id="company-key-fact" class="company-key-fact"></p>
+        </section>
+
+        </div><!-- /center-col -->
 
         <!-- RIGHT: Thinking + Trades -->
         <div class="right-col">

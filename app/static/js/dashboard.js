@@ -5,6 +5,7 @@ const state = {
   selectedSymbol: body.dataset.defaultSymbol,
   chartInitialized: false,
   isFetching: false,
+  companyInfoSymbol: null,
 };
 
 const elements = {
@@ -396,6 +397,34 @@ function renderSystemFlow(data) {
   setFlowCardTone(elements.flowExecutionCard, tradeMode === "PAPER" ? "warm" : "live");
 }
 
+async function fetchCompanyInfo(symbol, name) {
+  const sectorEl  = document.getElementById("company-sector");
+  const nameEl    = document.getElementById("company-display-name");
+  const ceoEl     = document.getElementById("company-ceo");
+  const foundedEl = document.getElementById("company-founded");
+  const hqEl      = document.getElementById("company-hq");
+  const descEl    = document.getElementById("company-description");
+  const factEl    = document.getElementById("company-key-fact");
+
+  if (descEl) descEl.textContent = "Loading company information…";
+  if (sectorEl) sectorEl.textContent = "Loading…";
+  if (nameEl) nameEl.textContent = name;
+
+  try {
+    const resp = await fetch(`/api/company-info?symbol=${encodeURIComponent(symbol)}&name=${encodeURIComponent(name)}`);
+    const info = await resp.json();
+    if (sectorEl)  sectorEl.textContent  = info.sector       || "—";
+    if (nameEl)    nameEl.textContent    = info.name         || name;
+    if (ceoEl)     ceoEl.textContent     = info.ceo          || "—";
+    if (foundedEl) foundedEl.textContent = info.founded      || "—";
+    if (hqEl)      hqEl.textContent      = info.headquarters || "—";
+    if (descEl)    descEl.textContent    = info.description  || "—";
+    if (factEl)    factEl.textContent    = info.key_fact     || "";
+  } catch {
+    if (descEl) descEl.textContent = "Could not load company information.";
+  }
+}
+
 function renderSelected(selected) {
   elements.selectedHeading.textContent = `${selected.name} (${selected.symbol})`;
   elements.heroLtp.textContent = formatCurrency(selected.ltp);
@@ -408,6 +437,11 @@ function renderSelected(selected) {
   elements.statLow.textContent = formatCurrency(selected.low);
   elements.statVolume.textContent = formatCompact(selected.volume);
   elements.statBook.textContent = `${formatCurrency(selected.bid)} / ${formatCurrency(selected.ask)}`;
+
+  if (selected.symbol !== state.companyInfoSymbol) {
+    state.companyInfoSymbol = selected.symbol;
+    fetchCompanyInfo(selected.symbol, selected.name);
+  }
 }
 
 function renderSignal(signal) {
