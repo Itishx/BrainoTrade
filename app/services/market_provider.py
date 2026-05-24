@@ -37,6 +37,9 @@ class BaseMarketProvider:
     def refresh_access_token(self) -> (bool, str):
         return False, "Token refresh is not available for this provider."
 
+    def set_access_token(self, token: str) -> (bool, str):
+        return False, "This provider does not support token updates."
+
     def set_status(self, message: str, code: str = "") -> None:
         self.status_message = message
         self.error_code = code
@@ -177,8 +180,27 @@ class GrowwMarketProvider(BaseMarketProvider):
             return
 
         self.sdk = GrowwAPI
-        access_token = self.settings.groww_api_access_token
-        if not access_token and self.settings.groww_api_key and self.settings.groww_api_secret:
+        access_token = None
+
+        # Priority 1: TOTP flow (permanent — never expires daily)
+        if self.settings.groww_totp_token and self.settings.groww_totp_secret:
+            try:
+                import pyotp
+                totp = pyotp.TOTP(self.settings.groww_totp_secret).now()
+                access_token = GrowwAPI.get_access_token(
+                    api_key=self.settings.groww_totp_token,
+                    totp=totp,
+                )
+            except Exception as exc:
+                self.set_status(f"Groww TOTP bootstrap failed: {exc}")
+                return
+
+        # Priority 2: Direct access token (manual daily paste)
+        elif self.settings.groww_api_access_token:
+            access_token = self.settings.groww_api_access_token
+
+        # Priority 3: API key + secret
+        elif self.settings.groww_api_key and self.settings.groww_api_secret:
             try:
                 access_token = GrowwAPI.get_access_token(
                     api_key=self.settings.groww_api_key,
@@ -189,7 +211,7 @@ class GrowwMarketProvider(BaseMarketProvider):
                 return
 
         if not access_token:
-            self.set_status("No Groww access token or API key/secret found.")
+            self.set_status("No Groww credentials found. Set GROWW_TOTP_TOKEN + GROWW_TOTP_SECRET in .env.")
             return
 
         try:
@@ -608,8 +630,25 @@ class GrowwMarketProvider(BaseMarketProvider):
     def refresh_access_token(self) -> (bool, str):
         if not self.sdk:
             return False, "growwapi is not installed."
+
+        # Prefer TOTP refresh (no daily expiry)
+        if self.settings.groww_totp_token and self.settings.groww_totp_secret:
+            try:
+                import pyotp
+                totp = pyotp.TOTP(self.settings.groww_totp_secret).now()
+                access_token = self.sdk.get_access_token(
+                    api_key=self.settings.groww_totp_token,
+                    totp=totp,
+                )
+                self.client = self.sdk(access_token)
+                self.set_status("Groww access token refreshed via TOTP.")
+                return True, "Groww access token refreshed via TOTP."
+            except Exception as exc:
+                self.set_status(f"Groww TOTP refresh failed: {exc}", getattr(exc, "code", ""))
+                return False, f"Groww TOTP refresh failed: {exc}"
+
         if not self.settings.groww_api_key or not self.settings.groww_api_secret:
-            return False, "Groww API key/secret is missing, so daily auto-refresh cannot mint a new token."
+            return False, "No TOTP or API key/secret configured for auto-refresh."
 
         try:
             access_token = self.sdk.get_access_token(
@@ -622,6 +661,19 @@ class GrowwMarketProvider(BaseMarketProvider):
         except Exception as exc:
             self.set_status(f"Groww token refresh failed: {exc}", getattr(exc, "code", ""))
             return False, f"Groww token refresh failed: {exc}"
+
+    def set_access_token(self, token: str) -> (bool, str):
+        if not self.sdk:
+            return False, "growwapi is not installed."
+        if not token:
+            return False, "Token is empty."
+        try:
+            self.client = self.sdk(token)
+            self.set_status("Groww access token updated successfully.")
+            return True, "Token applied. Groww client reconnected."
+        except Exception as exc:
+            self.set_status(f"Token update failed: {exc}", getattr(exc, "code", ""))
+            return False, f"Token update failed: {exc}"
 
     def place_market_order(self, symbol: str, quantity: int, side: str, reference_id: str) -> Dict[str, Any]:
         if not self.client:

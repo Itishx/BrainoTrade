@@ -62,6 +62,30 @@ def _fetch_company_info_from_openai(symbol: str, name: str, api_key: str, model:
     return json.loads(text)
 
 
+_ENV_PATH = os.path.join(os.path.dirname(__file__), "..", ".env")
+
+
+def _persist_token_to_env(token: str) -> None:
+    try:
+        env_path = os.path.abspath(_ENV_PATH)
+        lines = []
+        replaced = False
+        if os.path.exists(env_path):
+            with open(env_path) as f:
+                for line in f:
+                    if line.startswith("GROWW_API_ACCESS_TOKEN="):
+                        lines.append(f"GROWW_API_ACCESS_TOKEN={token}\n")
+                        replaced = True
+                    else:
+                        lines.append(line)
+        if not replaced:
+            lines.append(f"GROWW_API_ACCESS_TOKEN={token}\n")
+        with open(env_path, "w") as f:
+            f.writelines(lines)
+    except Exception:
+        pass
+
+
 def create_app() -> Flask:
     settings = load_settings()
     provider = build_market_provider(settings)
@@ -102,6 +126,17 @@ def create_app() -> Flask:
     def dashboard():
         symbol = request.args.get("symbol", settings.default_symbol)
         return jsonify(engine.get_dashboard_state(symbol))
+
+    @app.post("/api/update-token")
+    def update_token():
+        payload = request.get_json(silent=True) or {}
+        token = (payload.get("access_token") or "").strip()
+        if not token:
+            return jsonify({"ok": False, "message": "access_token is required"}), 400
+        success, message = provider.set_access_token(token)
+        if success:
+            _persist_token_to_env(token)
+        return jsonify({"ok": success, "message": message}), 200 if success else 400
 
     @app.post("/api/mode")
     def set_mode():

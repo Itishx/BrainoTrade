@@ -96,6 +96,8 @@ class Settings:
     ai_watchlist_limit: int
     token_refresh_hour: int
     token_refresh_minute: int
+    groww_totp_token: str
+    groww_totp_secret: str
     groww_api_access_token: str
     groww_api_key: str
     groww_api_secret: str
@@ -147,6 +149,8 @@ def load_settings() -> Settings:
         ai_watchlist_limit=_env_int("AI_WATCHLIST_LIMIT", 12),
         token_refresh_hour=_env_int("TOKEN_REFRESH_HOUR", 6),
         token_refresh_minute=_env_int("TOKEN_REFRESH_MINUTE", 30),
+        groww_totp_token=os.getenv("GROWW_TOTP_TOKEN", "").strip(),
+        groww_totp_secret=os.getenv("GROWW_TOTP_SECRET", "").strip(),
         groww_api_access_token=os.getenv("GROWW_API_ACCESS_TOKEN", "").strip(),
         groww_api_key=os.getenv("GROWW_API_KEY", "").strip(),
         groww_api_secret=os.getenv("GROWW_API_SECRET", "").strip(),

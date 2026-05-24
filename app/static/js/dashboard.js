@@ -6,6 +6,8 @@ const state = {
   chartInitialized: false,
   isFetching: false,
   companyInfoSymbol: null,
+  isRunning: false,
+  intervalId: null,
 };
 
 const elements = {
@@ -191,6 +193,8 @@ function renderWatchlist(items) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `watchlist-item ${item.symbol === state.selectedSymbol ? "active" : ""}`;
+    const barWidth = Math.min(Math.abs(item.change_pct || 0) * 10, 100);
+    const barClass = (item.change_pct || 0) >= 0 ? "positive" : "negative";
     button.innerHTML = `
       <div class="watchlist-top">
         <div class="symbol-stack">
@@ -205,7 +209,9 @@ function renderWatchlist(items) {
           ${scoreBadge}
           ${trendBadge}
         </div>
-        <span class="${sentimentClass(item.change_pct)}">${item.change_pct >= 0 ? "▲" : "▼"}</span>
+      </div>
+      <div class="watch-change-bar-wrap">
+        <div class="watch-change-bar ${barClass}" style="width:${barWidth}%"></div>
       </div>
     `;
     button.addEventListener("click", () => {
@@ -270,42 +276,52 @@ function renderPositions(positions) {
 function renderScanner(scanner) {
   if (!scanner) return;
 
-  const total = scanner.total_symbols || 0;
-  const warmed = scanner.warmed_symbols || 0;
+  const total    = scanner.total_symbols || 0;
+  const warmed   = scanner.warmed_symbols || 0;
   const eligible = scanner.eligible_symbols || 0;
 
   if (elements.signalScanStatus) {
-    if (total > 0) {
-      elements.signalScanStatus.textContent =
-        `Scanning ${formatNumber(total)} symbols · ${formatNumber(eligible)} eligible right now`;
-    } else {
-      elements.signalScanStatus.textContent = "Scanning…";
-    }
+    elements.signalScanStatus.textContent = total > 0
+      ? `Scanning ${formatNumber(total)} symbols · ${formatNumber(eligible)} eligible`
+      : "Scanning…";
   }
 
+  // ── Scanner status bar ─────────────────────────────────────────
+  const scBatch    = document.getElementById("sc-batch");
+  const scTotal    = document.getElementById("sc-total");
+  const scWarmed   = document.getElementById("sc-warmed");
+  const scHydrated = document.getElementById("sc-hydrated");
+  const scHistory  = document.getElementById("sc-history");
+  const scEligible = document.getElementById("sc-eligible");
+  const scCycle    = document.getElementById("sc-cycle");
+  const scFocus    = document.getElementById("sc-focus");
+
+  if (scBatch)    scBatch.textContent    = formatNumber(scanner.scan_batch_size || 0);
+  if (scTotal)    scTotal.textContent    = formatNumber(total);
+  if (scWarmed)   scWarmed.textContent   = formatNumber(warmed);
+  if (scHydrated) scHydrated.textContent = formatNumber(scanner.hydrated_symbols || 0);
+  if (scHistory)  scHistory.textContent  = formatNumber(scanner.real_history_symbols || 0);
+  if (scEligible) scEligible.textContent = formatNumber(eligible);
+  if (scCycle) {
+    const mins = scanner.full_cycle_seconds ? (scanner.full_cycle_seconds / 60).toFixed(1) : "0.0";
+    scCycle.textContent = mins;
+  }
+  if (scFocus) {
+    const syms = Array.isArray(scanner.focus_symbols) ? scanner.focus_symbols : [];
+    scFocus.innerHTML = syms.length
+      ? syms.map(s => `<span class="scanner-chip">${s}</span>`).join("")
+      : `<span style="color:var(--ink-muted)">—</span>`;
+  }
+
+  // ── Watchlist note (simplified) ────────────────────────────────
   if (!elements.watchlistNote) return;
-
-  if (scanner.source === "groww_nse_all") {
-    const cycleMinutes = scanner.full_cycle_seconds
-      ? (scanner.full_cycle_seconds / 60).toFixed(1)
-      : "0.0";
-    const focus = Array.isArray(scanner.focus_symbols) && scanner.focus_symbols.length
-      ? ` • focus ${scanner.focus_symbols.join(", ")}`
-      : "";
-    elements.watchlistNote.textContent =
-      `Scanning ${formatNumber(scanner.scan_batch_size)} / ${formatNumber(total)} per cycle • ` +
-      `${formatNumber(warmed)} warmed • ${formatNumber(scanner.hydrated_symbols || 0)} hydrated • ` +
-      `${formatNumber(scanner.real_history_symbols || 0)} chart-ready • ${formatNumber(eligible)} eligible • ` +
-      `~${cycleMinutes} min/full pass${focus}`;
-    return;
-  }
-
   if (scanner.source === "custom") {
-    elements.watchlistNote.textContent = `Tracking ${formatNumber(total)} custom symbols`;
-    return;
+    elements.watchlistNote.textContent = `${formatNumber(total)} custom symbols`;
+  } else if (scanner.source === "groww_nse_all") {
+    elements.watchlistNote.textContent = `${formatNumber(total)} NSE cash stocks`;
+  } else {
+    elements.watchlistNote.textContent = "Polling every few seconds";
   }
-
-  elements.watchlistNote.textContent = "Polling every few seconds";
 }
 
 function renderSystemFlow(data) {
@@ -578,6 +594,46 @@ function renderTrades(trades) {
     .join("");
 }
 
+function renderMoneyToday(trades) {
+  const el = document.getElementById("money-today-breakdown");
+  if (!el) return;
+
+  if (!trades.length) {
+    el.innerHTML = '<div class="money-today-empty">No trades yet today.</div>';
+    return;
+  }
+
+  const buyPrices = {};
+  const cards = trades.map((trade) => {
+    if (trade.side === "BUY") buyPrices[trade.symbol] = trade.price;
+    return trade;
+  });
+
+  el.innerHTML = cards
+    .map((trade) => {
+      const isSell = trade.side === "SELL";
+      const sideClass = trade.side === "BUY" ? "buy" : "sell";
+      const pnlClass = sentimentClass(trade.pnl);
+      const boughtAt = isSell && buyPrices[trade.symbol] ? buyPrices[trade.symbol] : null;
+      const t = new Date(trade.timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+
+      return `
+        <div class="trade-breakdown-card">
+          <div class="breakdown-card-top">
+            <span class="signal-badge ${sideClass}">${trade.side}</span>
+            <span class="breakdown-symbol">${trade.symbol}</span>
+          </div>
+          ${trade.side === "BUY" ? `<div class="breakdown-meta">Bought <span class="breakdown-price">${formatCurrency(trade.price)}</span></div>` : ""}
+          ${isSell && boughtAt ? `<div class="breakdown-meta">Bought <span class="breakdown-price">${formatCurrency(boughtAt)}</span></div>` : ""}
+          ${isSell ? `<div class="breakdown-meta">Sold <span class="breakdown-price">${formatCurrency(trade.price)}</span></div>` : ""}
+          ${isSell && trade.pnl !== null && trade.pnl !== undefined ? `<div class="breakdown-pnl ${pnlClass}">${formatCurrency(trade.pnl)}</div>` : ""}
+          <div class="breakdown-time">${t}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 function renderChart(selected) {
   if (!window.Plotly) {
     return;
@@ -692,6 +748,7 @@ async function fetchDashboard() {
     renderSession(data);
     renderThinking(data.thinking || []);
     renderTrades(data.trades);
+    renderMoneyToday(data.trades);
     renderChart(data.selected);
     setAlert(data.alerts[0]);
   } catch (error) {
@@ -705,11 +762,180 @@ async function fetchDashboard() {
   }
 }
 
+// ── Trading controls ────────────────────────────────────────────
+
+const startBtn = document.getElementById("start-btn");
+const stopBtn  = document.getElementById("stop-btn");
+const tradingDot   = document.getElementById("trading-dot");
+const tradingLabel = document.getElementById("trading-status-label");
+
+function setTradingUI(running) {
+  if (running) {
+    startBtn.classList.add("hidden");
+    stopBtn.classList.remove("hidden");
+    tradingDot.className = "trading-dot running";
+    tradingLabel.textContent = "Live";
+  } else {
+    startBtn.classList.remove("hidden");
+    stopBtn.classList.add("hidden");
+    tradingDot.className = "trading-dot idle";
+    tradingLabel.textContent = "Idle";
+  }
+}
+
+function startTrading() {
+  if (state.isRunning) return;
+  state.isRunning = true;
+  setTradingUI(true);
+  fetchDashboard();
+  state.intervalId = setInterval(fetchDashboard, refreshIntervalMs);
+}
+
+function stopTrading() {
+  if (!state.isRunning) return;
+  state.isRunning = false;
+  clearInterval(state.intervalId);
+  state.intervalId = null;
+  setTradingUI(false);
+  tradingDot.className = "trading-dot stopped";
+  tradingLabel.textContent = "Stopped";
+}
+
+startBtn.addEventListener("click", startTrading);
+stopBtn.addEventListener("click", stopTrading);
+
+// ── Auto-schedule 9:15 AM → 3:20 PM IST ────────────────────────
+
+function getIST() {
+  const now = new Date();
+  const istMs = now.getTime() + now.getTimezoneOffset() * 60000 + 5.5 * 3600000;
+  return new Date(istMs);
+}
+
+function msUntil(h, m, fromIST) {
+  const target = new Date(fromIST);
+  target.setHours(h, m, 0, 0);
+  return target - fromIST;
+}
+
+function fmtCountdown(ms) {
+  if (ms <= 0) return "";
+  const totalSec = Math.floor(ms / 1000);
+  const hh = Math.floor(totalSec / 3600);
+  const mm = Math.floor((totalSec % 3600) / 60);
+  const ss = totalSec % 60;
+  return `in ${hh > 0 ? hh + "h " : ""}${mm}m ${ss}s`;
+}
+
+const countdownEl = document.getElementById("schedule-countdown");
+
+function tickSchedule() {
+  const ist = getIST();
+  const h = ist.getHours(), m = ist.getMinutes();
+  const cur  = h * 60 + m;
+  const open = 9 * 60 + 15;
+  const close = 15 * 60 + 20;
+
+  if (cur < open) {
+    const ms = msUntil(9, 15, ist);
+    if (countdownEl) countdownEl.textContent = "Opens " + fmtCountdown(ms);
+    setTimeout(() => { startTrading(); tickSchedule(); }, ms);
+  } else if (cur >= open && cur < close) {
+    const ms = msUntil(15, 20, ist);
+    if (countdownEl) countdownEl.textContent = "Closes " + fmtCountdown(ms);
+    if (!state.isRunning) startTrading();
+    setTimeout(() => { stopTrading(); tickSchedule(); }, ms);
+  } else {
+    const msToMidnight = msUntil(24, 0, ist);
+    const msToOpen = msToMidnight + (9 * 60 + 15) * 60000;
+    if (countdownEl) countdownEl.textContent = "Tomorrow " + fmtCountdown(msToOpen);
+    setTimeout(() => { startTrading(); tickSchedule(); }, msToOpen);
+  }
+}
+
+// Update countdown display every second without re-scheduling
+setInterval(() => {
+  const ist = getIST();
+  const h = ist.getHours(), m = ist.getMinutes(), s = ist.getSeconds();
+  const cur  = h * 60 + m;
+  const open = 9 * 60 + 15;
+  const close = 15 * 60 + 20;
+
+  if (!countdownEl) return;
+  if (cur < open) {
+    const ms = msUntil(9, 15, ist) - s * 1000;
+    countdownEl.textContent = "Opens " + fmtCountdown(ms);
+  } else if (cur >= open && cur < close) {
+    const ms = msUntil(15, 20, ist) - s * 1000;
+    countdownEl.textContent = "Closes " + fmtCountdown(ms);
+  } else {
+    countdownEl.textContent = "Market closed";
+  }
+}, 1000);
+
+// Mode buttons (control bar)
 elements.modeButtons.forEach((button) => {
   button.addEventListener("click", () => {
     setMode(button.dataset.mode);
   });
 });
 
+// ── Token update panel ───────────────────────────────────────────
+(function () {
+  const tokenBtn      = document.getElementById("token-btn");
+  const tokenPanel    = document.getElementById("token-panel");
+  const tokenInput    = document.getElementById("token-input");
+  const tokenSubmit   = document.getElementById("token-submit");
+  const tokenCancel   = document.getElementById("token-cancel");
+  const tokenFeedback = document.getElementById("token-feedback");
+
+  if (!tokenBtn) return;
+
+  tokenBtn.addEventListener("click", () => {
+    const open = tokenPanel.classList.toggle("hidden");
+    tokenBtn.classList.toggle("active", !open);
+    if (!open) tokenInput.focus();
+  });
+
+  tokenCancel.addEventListener("click", () => {
+    tokenPanel.classList.add("hidden");
+    tokenBtn.classList.remove("active");
+    tokenFeedback.textContent = "";
+  });
+
+  tokenSubmit.addEventListener("click", async () => {
+    const token = tokenInput.value.trim();
+    if (!token) { tokenFeedback.textContent = "Paste a token first."; tokenFeedback.className = "token-feedback negative"; return; }
+    tokenFeedback.textContent = "Applying…";
+    tokenFeedback.className = "token-feedback neutral";
+    try {
+      const res  = await fetch("/api/update-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token: token }),
+      });
+      const data = await res.json();
+      tokenFeedback.textContent = data.message;
+      tokenFeedback.className   = "token-feedback " + (data.ok ? "positive" : "negative");
+      if (data.ok) {
+        tokenInput.value = "";
+        setTimeout(() => {
+          tokenPanel.classList.add("hidden");
+          tokenBtn.classList.remove("active");
+          tokenFeedback.textContent = "";
+          fetchDashboard();
+        }, 1600);
+      }
+    } catch {
+      tokenFeedback.textContent = "Request failed — is the server running?";
+      tokenFeedback.className   = "token-feedback negative";
+    }
+  });
+})();
+
+// Single fetch on load so the dashboard shows current state immediately
+// (polling only starts when Start Trading is clicked)
 fetchDashboard();
-setInterval(fetchDashboard, refreshIntervalMs);
+
+// Kick off the auto-schedule logic
+tickSchedule();
